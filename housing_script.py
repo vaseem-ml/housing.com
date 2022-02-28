@@ -94,7 +94,7 @@ class HousingJobScrapper(object):
                                 writer = csv.writer(fd)
                                 writer.writerow(localitiesData)
                 
-        print("Locations of "+city["name"]+" has been scraped")
+            print("Locations of "+city["name"]+" has been scraped")
         self.localities = pd.read_csv("localities.csv")
         
     def scrape_projects(self):
