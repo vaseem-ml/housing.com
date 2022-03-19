@@ -24,7 +24,7 @@ class HousingJobScrapper(object):
         if not os.path.isfile('cities.csv'):
             print("Creating cities CSV")
             with open('cities.csv', 'w') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames = ["name", "id", "cityId", "url", "cityClassification", "image", "products"])
+                writer = csv.DictWriter(csvfile, fieldnames = ["name", "id", "cityId", "url", "cityClassification", "image", "products", "scraped"])
                 writer.writeheader()
                 
         """Checking Localities CSV if not then create"""
@@ -42,6 +42,7 @@ class HousingJobScrapper(object):
                 writer.writeheader()
                 
         self.housingCities = pd.read_csv("cities.csv")
+        self.housingCities = self.housingCities[self.housingCities.scraped==0]
         self.localities = pd.read_csv("localities.csv")
         
         
@@ -58,6 +59,7 @@ class HousingJobScrapper(object):
             if self.cities[self.cities.dtname==city["name"].lower()].any().any():
                 if not self.housingCities[self.housingCities.id==city['id']].any().any():
                     cityData = [value for value in city.values()]
+                    cityData.append(0)
                     with open('cities.csv','a') as fd:
                         writer = csv.writer(fd)
                         writer.writerow(cityData)
@@ -77,25 +79,35 @@ class HousingJobScrapper(object):
                 allDict.append(i+j)
 
         for index, city in self.housingCities.iterrows():
-#             if city["name"]=="Jaipur":
-            for search in tqdm(allDict):
-                request_payload = {
-                  "query": "\n  query($searchQuery: SearchQueryInput!, $variant: String) {\n    typeAhead(searchQuery: $searchQuery, variant: $variant) {\n      results {\n        id\n        name\n        displayType\n        type\n        subType\n        url\n        center\n      }\n      defaultUrl\n      isCrossCitySearch\n    }\n  }\n",
-                  "variables": "{\"searchQuery\":{\"name\":\""+search+"\",\"service\":\"buy\",\"category\":\"residential\",\"city\":{\"name\":\""+city["name"]+"\",\"id\":\""+city["id"]+"\",\"url\":\""+city["url"]+"\",\"isTierTwo\":null,\"products\":[\"paying_guest\",\"rent\",\"buy\",\"plots\",\"commercial\"]},\"excludeEntities\":[],\"rows\":12},\"variant\":\"default\"}"
-                }
-                localityResponse = requests.post(locality_list_url, data=request_payload)
-                localityJson = localityResponse.json()
-                for locality in localityJson["data"]["typeAhead"]["results"]:
-                    if locality["displayType"]=="Locality":
-                        if not self.localities[self.localities["id"]==locality["id"]].any().any():
+            try:
+    #             if city["name"]=="Jaipur":
+                print("City: ", city["name"], " is scraping")
+                for search in tqdm(allDict):
+                    request_payload = {
+                    "query": "\n  query($searchQuery: SearchQueryInput!, $variant: String) {\n    typeAhead(searchQuery: $searchQuery, variant: $variant) {\n      results {\n        id\n        name\n        displayType\n        type\n        subType\n        url\n        center\n      }\n      defaultUrl\n      isCrossCitySearch\n    }\n  }\n",
+                    "variables": "{\"searchQuery\":{\"name\":\""+search+"\",\"service\":\"buy\",\"category\":\"residential\",\"city\":{\"name\":\""+city["name"]+"\",\"id\":\""+city["id"]+"\",\"url\":\""+city["url"]+"\",\"isTierTwo\":null,\"products\":[\"paying_guest\",\"rent\",\"buy\",\"plots\",\"commercial\"]},\"excludeEntities\":[],\"rows\":12},\"variant\":\"default\"}"
+                    }
+                    localityResponse = requests.post(locality_list_url, data=request_payload)
+                    localityJson = localityResponse.json()
+                    for locality in localityJson["data"]["typeAhead"]["results"]:
+                        if locality["displayType"]=="Locality":
+                            if not self.localities[self.localities["id"]==locality["id"]].any().any():
 
-                            localitiesData = [locality["id"], locality["name"], city["name"], city["id"], city["url"], locality["displayType"], locality["type"], locality["subType"]]
-                            with open('localities.csv','a') as fd:
-                                writer = csv.writer(fd)
-                                writer.writerow(localitiesData)
+                                localitiesData = [locality["id"], locality["name"], city["name"], city["id"], city["url"], locality["displayType"], locality["type"], locality["subType"]]
+                                with open('localities.csv','a') as fd:
+                                    writer = csv.writer(fd)
+                                    writer.writerow(localitiesData)
+                print("scrped")
+                print("Locations of "+city["name"]+" has been scraped")
+                self.localities = pd.read_csv("localities.csv")
+                self.housingCities.loc[self.housingCities.name==city["name"], "scraped"] = 1
+                self.housingCities.to_csv("cities.csv", index=False)
+                # break
                 
-            print("Locations of "+city["name"]+" has been scraped")
-        self.localities = pd.read_csv("localities.csv")
+            except:
+                pass
+                
+        
         
     def scrape_projects(self):
 #         try:
@@ -159,7 +171,7 @@ class HousingJobScrapper(object):
 
             else:
                 print("No Data")
-                    
+                
             self.page=1
 
 
