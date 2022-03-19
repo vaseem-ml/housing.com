@@ -64,6 +64,8 @@ class HousingJobScrapper(object):
                         writer = csv.writer(fd)
                         writer.writerow(cityData)
         self.housingCities = pd.read_csv("cities.csv")
+        self.housingCities = self.housingCities[self.housingCities.scraped==0]
+
         
         
     def scrape_localities(self):
